@@ -33,7 +33,9 @@
    .\build\build-spa.ps1 -InstallDir "D:\MAA-spa"
    ```
    约 1~3 分钟，替换 `MaaCore.dll` 即可；
-4. 优先做这几个改动：
+4. 启动任务：优先用 `build/spa-headless.ps1`（见 `docs/HEADLESS.md`），
+   不依赖 GUI 点击；等级12/300 先手动进对局再 `-Runs 1`；
+5. 优先做这几个改动：
    - **300 层 goal**：需要休整期右侧「核心盟约」面板截图，定层数 OCR 的 ROI；
    - 达到 20 个策略就停（而不是 31 个）；
    - 策略指纹缓存落盘（省重启后首局扫描时间）；

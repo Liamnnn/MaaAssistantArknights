@@ -36,6 +36,7 @@ patches/
   MiniGame.cs           改好的完整 C# 文件
 build/
   build-spa.ps1         一键构建脚本（默认只编 MaaCore）
+  spa-headless.ps1      headless 启动任务（调 MaaCore.dll，不点 GUI）
 artifact/
   README.md             构建产物信息（二进制不进 git）
 reference/
