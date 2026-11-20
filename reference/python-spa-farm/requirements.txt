@@ -1,0 +1,4 @@
+numpy>=1.24
+opencv-python-headless>=4.8
+# badges 模式需要；points 模式可以不装
+rapidocr-onnxruntime>=1.3.24

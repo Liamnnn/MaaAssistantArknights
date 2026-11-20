@@ -1,0 +1,40 @@
+--- a/src/MaaCore/Task/MiniGame/SPAFarmTaskPlugin.cpp	2026-11-20 10:33:52
++++ b/src/MaaCore/Task/MiniGame/SPAFarmTaskPlugin.cpp	2026-11-20 10:33:52
+@@ -514,7 +514,7 @@
+     int target_val = params.get("medalWins", params.get("target", params.get("target_clears", 3)));
+     m_target = (target_val == 6) ? 6 : 3;
+     m_verify_upgrade = params.get("verifyUpgrade", params.get("verify_upgrade", false));
+-    m_runs = std::max(1, params.get("runs", params.get("max_runs", 20)));
++    m_runs = std::max(1, params.get("runs", params.get("max_runs", 60)));
+     if (auto mode = params.find<std::string>("mode"); mode && !mode->empty()) {
+         set_mode(*mode);
+     }
+@@ -13020,8 +13020,17 @@
+         }
+ 
+         if (m_runs_completed >= m_runs) {
++            stop_reason = "达到设定通关局数上限（" + std::to_string(m_runs) + " 胜），已达标策略 "
++                          + std::to_string(m_done_strategies.size()) + "/"
++                          + std::to_string(total_available_strategies());
+             break;
+         }
++        // 尝试次数上限：set_params 解析了 attempts，但主循环原先没有使用
++        if (m_attempts > 0 && m_attempts_done >= m_attempts) {
++            stop_reason = "达到尝试次数上限（" + std::to_string(m_attempts) + " 场）";
++            finished_ok = false;
++            break;
++        }
+     }
+ 
+     if (need_exit()) {
+--- a/src/MaaWpfGui/Configuration/Single/Settings/MiniGame.cs	2026-11-20 10:33:52
++++ b/src/MaaWpfGui/Configuration/Single/Settings/MiniGame.cs	2026-11-20 10:33:52
+@@ -59,7 +59,7 @@
+     /// <summary>
+     /// Gets or sets 刷角标最多通关局数。
+     /// </summary>
+-    public int SPAMaxRuns { get; set; } = 20;
++    public int SPAMaxRuns { get; set; } = 60;
+ 
+     /// <summary>
+     /// Gets or sets 刷角标的目标："medal" 刷策略徽章，"task-1".."task-7" 对应七条任务线。

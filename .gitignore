@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.zip
+progress.json
+debug/
+screenshots/
+.DS_Store
