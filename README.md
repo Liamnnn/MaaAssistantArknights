@@ -49,12 +49,16 @@ reference/
 
 ## 远端
 
-已推送到（private）：https://github.com/Liamnnn/spa-farm-context
+当前可直接访问（作为 MAA fork 的独立分支，不影响 dev-v2/release）：
 
-在 Windows 上继续：
+- https://github.com/Liamnnn/MaaAssistantArknights/tree/context/spa-optimization
+- Windows 上克隆：
 
 ```powershell
-git clone https://github.com/Liamnnn/spa-farm-context.git
-cd spa-farm-context
+git clone --depth 1 -b context/spa-optimization https://github.com/Liamnnn/MaaAssistantArknights.git spa-context
+cd spa-context
 # 先读 HANDOFF.md，再按 docs/BUILD-WINDOWS.md 构建
 ```
+
+另有一个空的 private 仓库 `Liamnnn/spa-farm-context` 预留；把该仓库加进 token 的
+Repository access 后，可以把它作为正式仓库推送过去（不影响使用）。
