@@ -1,0 +1,154 @@
+name: SPA Custom Release
+
+# 自定义构建的完整安装包，只在 fork 的 release/spa 分支上使用。
+# 版本号刻意低于官方当前稳定版，用户覆盖安装后可通过 GUI 的自动更新回到官方版本。
+# 本工作流不进入上游 PR 分支。
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "release/spa"
+    paths:
+      - ".github/workflows/release-spa.yml"
+      - "src/**"
+      - "resource/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+
+permissions:
+  contents: write
+
+env:
+  SPA_VERSION: v6.22.0-spa.1
+  SPA_VERSION_NUM: 6.22.0
+
+jobs:
+  build:
+    name: Windows x64 full package
+    runs-on: windows-2025-vs2026
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          show-progress: false
+
+      - name: Fetch submodules
+        shell: bash
+        run: bash ./.github/scripts/sync-optional-submodules.sh --init --depth 1 src/MaaUtils 3rdparty/EmulatorExtras
+
+      - name: Cache MaaDeps
+        id: cache-maadeps
+        uses: actions/cache@v6
+        continue-on-error: true
+        with:
+          path: ./src/MaaUtils/MaaDeps
+          key: ${{ runner.os }}-x64-maadeps-${{ hashFiles('tools/maadeps-download.py') }}
+
+      - name: Bootstrap MaaDeps
+        if: steps.cache-maadeps.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tools/maadeps-download.py x64-windows
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -B build --preset windows-publish-x64 \
+            -DMAA_HASH_VERSION="$SPA_VERSION" \
+            -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded
+
+      - name: Build MaaCore
+        run: cmake --build build --config RelWithDebInfo --target MaaCore --parallel $env:NUMBER_OF_PROCESSORS
+
+      - name: Build apphost and updater
+        run: |
+          cmake --build build --config RelWithDebInfo --target MaaAppHostStub --parallel $env:NUMBER_OF_PROCESSORS
+          cmake --build build --config RelWithDebInfo --target MAA.Updater --parallel $env:NUMBER_OF_PROCESSORS
+
+      - name: Generate global.json
+        shell: bash
+        run: echo '{"sdk":{"version":"10.0.302","rollForward":"disable"}}' > global.json
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        continue-on-error: true
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-x64-nuget-${{ hashFiles('**/*.csproj', 'global.json') }}
+
+      - name: Restore WPF GUI
+        run: dotnet restore src/MaaWpfGui/MaaWpfGui.csproj
+
+      # 更新检查读的是 MaaCore.dll 里的 MAA_HASH_VERSION（上面 cmake 传入），
+      # 这里的版本属性只用于程序集信息显示，两者保持一致。
+      - name: Publish WPF GUI
+        run: >-
+          dotnet publish src/MaaWpfGui/MaaWpfGui.csproj -c Release -p:Platform=x64
+          -p:Version=$env:SPA_VERSION_NUM -p:FileVersion=$env:SPA_VERSION_NUM
+          -p:AssemblyVersion=$env:SPA_VERSION_NUM -p:InformationalVersion=$env:SPA_VERSION
+          -o install
+
+      - name: Install MaaCore and resources
+        run: cmake --install build --config RelWithDebInfo
+
+      - name: Replace apphost
+        shell: bash
+        run: cp build/bin/RelWithDebInfo/MaaAppHostStub.exe install/MAA.exe
+
+      - name: Verify bundled resources
+        shell: bash
+        run: |
+          for f in install/MAA.exe install/MAA.dll install/MaaCore.dll \
+                   install/resource/tasks/MiniGame/SPA.json \
+                   install/resource/SPAFarm/chess.json \
+                   install/resource/SPAFarm/calib/m01-expanded.json \
+                   install/resource/SPAFarm/image/badge_l1.png; do
+            if [ ! -f "$f" ]; then
+              echo "::error::missing $f"
+              exit 1
+            fi
+          done
+          echo "bundle check passed"
+
+      - name: Package full install
+        shell: pwsh
+        run: |
+          Remove-Item install/*.pdb -ErrorAction SilentlyContinue
+          Remove-Item install/MAAComponent-DebugSymbol-*.zip -ErrorAction SilentlyContinue
+          Remove-Item install/msvc-debug -Recurse -ErrorAction SilentlyContinue
+          Copy-Item tools/DependencySetup_依赖库安装.bat install -ErrorAction SilentlyContinue
+          Compress-Archive -DestinationPath "MAA-$env:SPA_VERSION-win-x64.zip" -Path ./install/*
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          cat > release_notes.md <<'EOF'
+          卫戍协议自动刷策略角标的自定义完整安装包，直接解压覆盖到 MAA 目录即可使用。
+
+          使用前请把游戏设为 1920×1080、使用默认皮肤、关闭游戏内的按键提示显示，并从活动主界面开始；
+          有存档需要先手动放弃。按键提示会挡住「确认升级」按钮中间的文字，OCR 读不到完整文案。
+
+          这个构建的版本号低于官方当前稳定版，因此保持默认的 GitHub 更新源并开启自动下载更新包后，
+          GUI 会提示升级到官方最新版，下载的是官方完整包，重启后即回到官方版本。
+
+          代码按小黑盒「ai-desktop.arknights-medal-farm」扩展包的实现逐函数翻译，
+          随附的数据与徽章模板同源于该扩展包；其 README 声明核心沿用上游的 GPL-3.0-or-later 并保留归属。
+          EOF
+          if gh release view "$SPA_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$SPA_VERSION" "MAA-$SPA_VERSION-win-x64.zip" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$SPA_VERSION" "MAA-$SPA_VERSION-win-x64.zip" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "卫戍协议自定义构建 $SPA_VERSION" \
+              --notes-file release_notes.md \
+              --target "$GITHUB_SHA" \
+              --prerelease
+          fi
