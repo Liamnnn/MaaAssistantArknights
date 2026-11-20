@@ -59,7 +59,7 @@ public class MiniGame : NotifyPropertyChangedWithValue
     /// <summary>
     /// Gets or sets 刷角标最多通关局数。
     /// </summary>
-    public int SPAMaxRuns { get; set; } = 20;
+    public int SPAMaxRuns { get; set; } = 60;
 
     /// <summary>
     /// Gets or sets 刷角标的目标："medal" 刷策略徽章，"task-1".."task-7" 对应七条任务线。
