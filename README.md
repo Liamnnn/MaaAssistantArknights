@@ -46,3 +46,15 @@ reference/
 
 对话里出现过的 GitHub token 已在 `CONVERSATION.md` 中替换为 `github_pat_REDACTED`。
 如果你之前创建过带 `Administration` 权限的 token，请去 GitHub 删除。
+
+## 远端
+
+已推送到（private）：https://github.com/Liamnnn/spa-farm-context
+
+在 Windows 上继续：
+
+```powershell
+git clone https://github.com/Liamnnn/spa-farm-context.git
+cd spa-farm-context
+# 先读 HANDOFF.md，再按 docs/BUILD-WINDOWS.md 构建
+```
